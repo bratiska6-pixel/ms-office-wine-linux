@@ -1,0 +1,13 @@
+# Wine and temporary runtime files
+*.log
+*.tmp
+*.cab
+*.msi
+*.exe
+*.iso
+*.zip
+
+# User data
+.wine-office/
+dist/
+build/
