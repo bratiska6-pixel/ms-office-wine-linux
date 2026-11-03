@@ -164,34 +164,42 @@ success "Твики реестра успешно применены."
 # 6. Создание скриптов запуска и ярлыков рабочего стола
 info "6/6. Создание скриптов запуска и ярлыков..."
 
-# Скрипт Word
-cat << EOF > "${HOME}/office-word.sh"
-#!/bin/bash
-export WINEPREFIX="${WINE_PREFIX_DIR}"
-export WINEARCH=win32
-export DISPLAY="\${DISPLAY:-:0}"
-wine "\$WINEPREFIX/drive_c/Program Files/Microsoft Office/Office14/WINWORD.EXE" "\$@"
-EOF
+# Общий шаблон для скрипта запуска с трансляцией путей Linux -> Windows через winepath
+create_launcher() {
+    local target_script="$1"
+    local exe_name="$2"
 
-# Скрипт Excel
-cat << EOF > "${HOME}/office-excel.sh"
+    cat << 'EOF' > "${target_script}"
 #!/bin/bash
-export WINEPREFIX="${WINE_PREFIX_DIR}"
+export WINEPREFIX="__WINE_PREFIX__"
 export WINEARCH=win32
-export DISPLAY="\${DISPLAY:-:0}"
-wine "\$WINEPREFIX/drive_c/Program Files/Microsoft Office/Office14/EXCEL.EXE" "\$@"
-EOF
+export DISPLAY="${DISPLAY:-:0}"
 
-# Скрипт PowerPoint
-cat << EOF > "${HOME}/office-powerpoint.sh"
-#!/bin/bash
-export WINEPREFIX="${WINE_PREFIX_DIR}"
-export WINEARCH=win32
-export DISPLAY="\${DISPLAY:-:0}"
-wine "\$WINEPREFIX/drive_c/Program Files/Microsoft Office/Office14/POWERPNT.EXE" "\$@"
-EOF
+ARGS=()
+for arg in "$@"; do
+    clean_arg="${arg#file://}"
+    decoded_arg=$(printf '%b' "${clean_arg//%/\\x}" 2>/dev/null || echo "$clean_arg")
+    if [ -e "$decoded_arg" ]; then
+        ARGS+=("$(winepath -w "$decoded_arg")")
+    elif [ -e "$clean_arg" ]; then
+        ARGS+=("$(winepath -w "$clean_arg")")
+    elif [ -e "$arg" ]; then
+        ARGS+=("$(winepath -w "$arg")")
+    else
+        ARGS+=("$arg")
+    fi
+done
 
-chmod +x "${HOME}/office-word.sh" "${HOME}/office-excel.sh" "${HOME}/office-powerpoint.sh"
+wine "$WINEPREFIX/drive_c/Program Files/Microsoft Office/Office14/__EXE_NAME__" "${ARGS[@]}"
+EOF
+    sed -i "s|__WINE_PREFIX__|${WINE_PREFIX_DIR}|g" "${target_script}"
+    sed -i "s|__EXE_NAME__|${exe_name}|g" "${target_script}"
+    chmod +x "${target_script}"
+}
+
+create_launcher "${HOME}/office-word.sh" "WINWORD.EXE"
+create_launcher "${HOME}/office-excel.sh" "EXCEL.EXE"
+create_launcher "${HOME}/office-powerpoint.sh" "POWERPNT.EXE"
 
 # Desktop-ярлык Word
 cat << EOF > "${DESKTOP_ENTRY_DIR}/ms-word.desktop"
